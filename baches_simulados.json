@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "latitud": 37.8042,
+    "longitud": -0.8351,
+    "calle": "Av. de la Libertad (San Javier)",
+    "tipo": "Bache profundo",
+    "gravedad": "Alta",
+    "fecha_deteccion": "2026-10-19 10:15",
+    "imagen_url": "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=500"
+  },
+  {
+    "id": 2,
+    "latitud": 37.8015,
+    "longitud": -0.8310,
+    "calle": "Calle Calderón de la Barca (San Javier)",
+    "tipo": "Grieta longitudinal",
+    "gravedad": "Media",
+    "fecha_deteccion": "2026-10-19 10:18",
+    "imagen_url": "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=500"
+  },
+  {
+    "id": 3,
+    "latitud": 37.8080,
+    "longitud": -0.8400,
+    "calle": "Polígono Industrial Pozo Aledo",
+    "tipo": "Piel de cocodrilo",
+    "gravedad": "Alta",
+    "fecha_deteccion": "2026-10-19 10:22",
+    "imagen_url": "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=500"
+  },
+  {
+    "id": 4,
+    "latitud": 37.9985,
+    "longitud": -1.1852,
+    "calle": "Av. de los Jerónimos (Guadalupe)",
+    "tipo": "Fisura transversal",
+    "gravedad": "Baja",
+    "fecha_deteccion": "2026-10-19 12:05",
+    "imagen_url": "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=500"
+  }
+]
