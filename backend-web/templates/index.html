@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7fb">
+  <title>Asfalto IA | Panel de incidencias</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172b4d;
+      --muted: #718096;
+      --line: #e7ebf2;
+      --blue: #315eea;
+      --canvas: #f5f7fb;
+      --surface: #fff;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    button { font: inherit; }
+    .layout { min-height: 100vh; }
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      display: flex;
+      width: 248px;
+      flex-direction: column;
+      padding: 28px 18px;
+      background: #fff;
+      border-right: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 0 10px 34px; }
+    .brand-mark {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border-radius: 12px;
+      background: #eaf0ff;
+      color: var(--blue);
+      font-size: 21px;
+      font-weight: 800;
+    }
+    .brand-name { font-size: 17px; font-weight: 750; letter-spacing: -.04em; }
+    .brand-subtitle { color: var(--muted); font-size: 11px; }
+    .nav-label {
+      padding: 0 12px 10px;
+      color: #98a2b3;
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 5px;
+      padding: 11px 12px;
+      border-radius: 10px;
+      color: #667085;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .nav-item:hover { background: #f5f7fb; color: var(--ink); }
+    .nav-item.active { background: #eef2ff; color: var(--blue); }
+    .nav-icon { width: 20px; text-align: center; font-size: 16px; }
+    .sidebar-note {
+      margin-top: auto;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+    main { margin-left: 248px; padding: 34px clamp(22px, 4vw, 58px) 56px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 34px; }
+    .eyebrow { margin: 0 0 6px; color: var(--muted); font-size: 12px; }
+    h1 { margin: 0; font-size: clamp(25px, 3vw, 32px); letter-spacing: -.045em; }
+    .user-chip { display: flex; align-items: center; gap: 10px; color: #526174; font-size: 13px; }
+    .avatar {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border-radius: 50%;
+      background: #dce7ff;
+      color: #315eea;
+      font-weight: 750;
+    }
+    .welcome { margin-bottom: 24px; color: var(--muted); }
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 26px; }
+    .card, .panel { border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: 0 4px 16px rgba(27, 43, 71, .035); }
+    .metric { min-height: 142px; padding: 20px; }
+    .metric-top { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; font-weight: 600; }
+    .metric-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: #f0f3ff; color: var(--blue); font-size: 16px; }
+    .metric-value { display: block; margin-top: 15px; font-size: 29px; font-weight: 750; letter-spacing: -.04em; }
+    .metric-foot { color: #98a2b3; font-size: 11px; }
+    .panel { overflow: hidden; }
+    .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 21px 23px; }
+    h2 { margin: 0; font-size: 16px; letter-spacing: -.02em; }
+    .panel-subtitle { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
+    th { padding: 12px 22px; background: #fafbfc; color: #8993a3; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    td { padding: 15px 22px; border-top: 1px solid #f0f2f6; color: #526174; font-size: 12px; }
+    td:first-child { color: var(--ink); font-weight: 650; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 20px; background: #fff7e6; color: #a66500; font-size: 11px; font-weight: 650; }
+    .badge.done { background: #eaf8ef; color: #188344; }
+    .priority-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 20px; background: #fff; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .priority-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--priority-color); }
+    .records-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .priority-filter { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .priority-filter select, .priority-filter button { min-height: 36px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); }
+    .priority-filter button { cursor: pointer; font-weight: 650; }
+    .priority-filter button:hover { border-color: var(--blue); color: var(--blue); }
+    .table-link { color: var(--blue); font-weight: 700; text-decoration: none; }
+    .table-link:hover { text-decoration: underline; }
+    .detail-panel { margin-top: 22px; }
+    .detail-content { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(280px, 1.1fr); gap: 24px; padding: 0 23px 24px; }
+    .evidence-image { display: block; width: 100%; max-height: 390px; border: 1px solid var(--line); border-radius: 12px; object-fit: contain; background: #f1f3f7; }
+    .image-caption { margin: 7px 0 0; color: var(--muted); font-size: 11px; }
+    .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
+    .detail-item { padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+    .detail-item dt { margin-bottom: 3px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .detail-item dd { margin: 0; color: var(--ink); font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+    .detail-close { color: var(--blue); font-size: 12px; font-weight: 650; text-decoration: none; white-space: nowrap; }
+    .detail-close:hover { text-decoration: underline; }
+    .map-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+    .map-legend .priority-badge { padding: 2px 0; background: transparent; }
+    .priority-pin { background: transparent; border: 0; }
+    .empty { padding: 46px 20px; color: var(--muted); text-align: center; }
+    .empty-icon { margin-bottom: 8px; font-size: 25px; }
+    .map-panel { margin-bottom: 26px; }
+    #incident-map { height: 390px; width: 100%; background: #e8edf5; }
+    .inspection-card { padding: 28px; }
+    .inspection-card p { max-width: 680px; color: var(--muted); }
+    .action-link {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 12px;
+      padding: 11px 16px;
+      border-radius: 9px;
+      background: var(--blue);
+      color: white;
+      font-size: 13px;
+      font-weight: 650;
+      text-decoration: none;
+    }
+    .action-link:hover { background: #244bd0; }
+    .command {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      background: #f3f5f9;
+      color: #526174;
+      font-size: 12px;
+    }
+    @media (max-width: 950px) {
+      .sidebar { width: 205px; }
+      main { margin-left: 205px; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .sidebar { position: static; width: 100%; padding: 16px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .brand { padding: 0 0 14px; }
+      .nav-label, .sidebar-note { display: none; }
+      .nav-item { display: inline-flex; margin: 0 4px 0 0; padding: 8px; font-size: 12px; }
+      main { margin-left: 0; padding: 24px 16px 38px; }
+      .topbar { margin-bottom: 22px; }
+      .user-chip span { display: none; }
+      .metrics { gap: 10px; }
+      .metric { min-height: 126px; padding: 15px; }
+      .metric-value { font-size: 25px; }
+      .panel-heading { padding: 18px; }
+      th, td { padding-right: 16px; padding-left: 16px; }
+      #incident-map { height: 310px; }
+      .inspection-card { padding: 20px; }
+      .records-toolbar { align-items: flex-start; flex-direction: column; }
+      .priority-filter { flex-wrap: wrap; }
+      .detail-content { grid-template-columns: 1fr; padding: 0 18px 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">A</div>
+        <div>
+          <div class="brand-name">Asfalto IA</div>
+          <div class="brand-subtitle">Gestión de incidencias</div>
+        </div>
+      </div>
+      <div class="nav-label">Espacio de trabajo</div>
+      <a class="nav-item{% if view == 'resumen' %} active{% endif %}" href="{{ url_for('index', vista='resumen') }}"{% if view == 'resumen' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▦</span>Resumen</a>
+      <a class="nav-item{% if view == 'inspecciones' %} active{% endif %}" href="{{ url_for('index', vista='inspecciones') }}"{% if view == 'inspecciones' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">⌖</span>Inspecciones</a>
+      <a class="nav-item{% if view == 'expedientes' %} active{% endif %}" href="{{ url_for('index', vista='expedientes') }}"{% if view == 'expedientes' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▤</span>Expedientes</a>
+      <div class="sidebar-note">
+        <span class="status-dot" aria-hidden="true"></span>
+        Sistema operativo
+        <div style="margin-top: 7px">Datos locales sincronizados con SQLite.</div>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Panel de control / {{ {"resumen": "Resumen", "inspecciones": "Inspecciones", "expedientes": "Expedientes"}[view] }}</p>
+          <h1>{{ {"resumen": "Incidencias viarias", "inspecciones": "Inspecciones con IA", "expedientes": "Expedientes registrados"}[view] }}</h1>
+        </div>
+        <div class="user-chip"><div class="avatar" aria-hidden="true">SJ</div><span>San Javier</span></div>
+      </header>
+      {% if view == "resumen" %}
+      <p class="welcome">Estado general de las inspecciones y daños registrados en la red viaria.</p>
+      <section class="metrics" aria-label="Resumen de incidencias">
+        <article class="card metric">
+          <div class="metric-top"><span>Expedientes</span><span class="metric-icon" aria-hidden="true">▤</span></div>
+          <strong class="metric-value">{{ summary.total }}</strong>
+          <span class="metric-foot">Total registrados</span>
+        </article>
+        <article class="card metric">
+          <div class="metric-top"><span>Pendientes</span><span class="metric-icon" aria-hidden="true">◷</span></div>
+          <strong class="metric-value">{{ summary.pendientes }}</strong>
+          <span class="metric-foot">Requieren seguimiento</span>
+        </article>
+        <article class="card metric">
+          <div class="metric-top"><span>Baches detectados</span><span class="metric-icon" aria-hidden="true">⌁</span></div>
+          <strong class="metric-value">{{ summary.baches }}</strong>
+          <span class="metric-foot">Clasificación D40</span>
+        </article>
+        <article class="card metric">
+          <div class="metric-top"><span>Otros defectos</span><span class="metric-icon" aria-hidden="true">⌖</span></div>
+          <strong class="metric-value">{{ summary.grietas + summary.piel_cocodrilo }}</strong>
+          <span class="metric-foot">Grietas y piel de cocodrilo</span>
+        </article>
+      </section>
+
+      <section class="panel map-panel" aria-labelledby="map-heading">
+        <div class="panel-heading">
+          <div>
+            <h2 id="map-heading">Mapa de expedientes</h2>
+            <p class="panel-subtitle">Ubicación de las incidencias con coordenadas registradas</p>
+            <div class="map-legend" aria-label="Leyenda de prioridad">
+              {% for priority, style in priorities.items() %}
+              <span class="priority-badge" style="--priority-color: {{ style.color }}"><span class="priority-dot" aria-hidden="true"></span>{{ priority }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% if map_points %}
+        <div id="incident-map" role="application" aria-label="Mapa interactivo de expedientes"></div>
+        {% else %}
+        <div class="empty">
+          <div class="empty-icon" aria-hidden="true">⌖</div>
+          <strong>No hay expedientes con coordenadas</strong>
+          <div>Cuando se registren ubicaciones, aparecerán en el mapa.</div>
+        </div>
+        {% endif %}
+      </section>
+
+      <section class="panel" aria-labelledby="recent-heading">
+        <div class="panel-heading">
+          <div>
+            <h2 id="recent-heading">Expedientes recientes</h2>
+            <p class="panel-subtitle">Últimas incidencias guardadas en el sistema</p>
+          </div>
+        </div>
+        {% if incidencias %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Expediente</th><th>Fecha</th><th>Ubicación</th><th>Defectos</th><th>Estado</th></tr>
+            </thead>
+            <tbody>
+              {% for incidencia in incidencias %}
+              <tr>
+                <td><a class="table-link" href="{{ url_for('index', vista='expedientes', id=incidencia.id) }}">{{ incidencia.id }}</a></td>
+                <td>{{ incidencia.fecha or "—" }}</td>
+                <td>{{ incidencia.ubicacion or "Ubicación no especificada" }}</td>
+                <td>{{ incidencia.total_defectos or 0 }}</td>
+                <td><span class="badge{% if incidencia.estado == 'Reparado' %} done{% endif %}">{{ incidencia.estado or "Pendiente" }}</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty">
+          <div class="empty-icon" aria-hidden="true">⌖</div>
+          <strong>Aún no hay expedientes</strong>
+          <div>Cuando se registren nuevas inspecciones, aparecerán aquí.</div>
+        </div>
+        {% endif %}
+      </section>
+      {% elif view == "inspecciones" %}
+      <p class="welcome">Analiza fotografías de la calzada con el módulo de visión artificial YOLOv8.</p>
+      <section class="panel inspection-card">
+        <h2>Módulo de inspección YOLOv8</h2>
+        <p>El análisis de imágenes está disponible en la aplicación Streamlit existente. Iníciala desde la raíz del proyecto y después abre el módulo para cargar una fotografía y ejecutar la detección.</p>
+        <code class="command">streamlit run backend-web/streamlit_app.py</code>
+        <p>Por defecto, Streamlit abre la interfaz en <strong>http://localhost:8501</strong>.</p>
+        <a class="action-link" href="http://localhost:8501" target="_blank" rel="noopener noreferrer">Abrir módulo de inspección <span aria-hidden="true">&nbsp;↗</span></a>
+      </section>
+      {% else %}
+      <p class="welcome">Consulta los expedientes municipales registrados y sus ubicaciones.</p>
+      <section class="panel" aria-labelledby="records-heading">
+        <div class="panel-heading">
+          <div class="records-toolbar">
+          <div>
+            <h2 id="records-heading">Todos los expedientes</h2>
+            <p class="panel-subtitle">{{ expedientes|length }} registros · Prioridad: baches ×3, piel de cocodrilo ×2 y grietas ×1</p>
+          </div>
+          <form class="priority-filter" method="get" action="{{ url_for('index') }}">
+            <input type="hidden" name="vista" value="expedientes">
+            <label for="priority-filter">Prioridad</label>
+            <select id="priority-filter" name="prioridad">
+              <option value="">Todas</option>
+              {% for priority in priorities %}
+              <option value="{{ priority }}"{% if priority_filter == priority %} selected{% endif %}>{{ priority }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit">Filtrar</button>
+          </form>
+          </div>
+        </div>
+        {% if expedientes %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Prioridad</th><th>Expediente</th><th>Fecha</th><th>Ubicación</th><th>Baches</th><th>Grietas</th><th>Piel de cocodrilo</th><th>Total</th><th>Estado</th></tr>
+            </thead>
+            <tbody>
+              {% for incidencia in expedientes %}
+              <tr>
+                <td><span class="priority-badge" style="--priority-color: {{ incidencia.color }}"><span class="priority-dot" aria-hidden="true"></span>{{ incidencia.prioridad }}</span></td>
+                <td><a class="table-link" href="{{ url_for('index', vista='expedientes', id=incidencia.id, prioridad=priority_filter or none) }}">{{ incidencia.id }}</a></td>
+                <td>{{ incidencia.fecha or "—" }}</td>
+                <td>{{ incidencia.ubicacion or "Ubicación no especificada" }}</td>
+                <td>{{ incidencia.baches or 0 }}</td>
+                <td>{{ incidencia.grietas or 0 }}</td>
+                <td>{{ incidencia.piel_cocodrilo or 0 }}</td>
+                <td>{{ incidencia.total_defectos or 0 }}</td>
+                <td><span class="badge{% if incidencia.estado == 'Reparado' %} done{% endif %}">{{ incidencia.estado or "Pendiente" }}</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty">Aún no hay expedientes guardados.</div>
+        {% endif %}
+      </section>
+      {% if selected_expediente %}
+      <section class="panel detail-panel" aria-labelledby="detail-heading">
+        <div class="panel-heading">
+          <div>
+            <h2 id="detail-heading">Detalle del expediente {{ selected_expediente.id }}</h2>
+            <p class="panel-subtitle">Información de la inspección y evidencia fotográfica</p>
+          </div>
+          <a class="detail-close" href="{{ url_for('index', vista='expedientes', prioridad=priority_filter or none) }}">Cerrar detalle</a>
+        </div>
+        <div class="detail-content">
+          <div>
+            {% if selected_image %}
+            <img class="evidence-image" src="{{ selected_image }}" alt="Fotografía del expediente {{ selected_expediente.id }}">
+            <p class="image-caption">{% if selected_image_is_original %}Fotografía original enviada para el análisis{% else %}Evidencia fotográfica guardada con el expediente{% endif %}</p>
+            {% else %}
+            <div class="empty">No se encontró una imagen para este expediente.</div>
+            {% endif %}
+            {% if processed_image %}
+            <h3>Resultado del análisis IA</h3>
+            <img class="evidence-image" src="{{ processed_image }}" alt="Imagen analizada del expediente {{ selected_expediente.id }}">
+            <p class="image-caption">Imagen procesada con las detecciones de YOLOv8</p>
+            {% endif %}
+          </div>
+          <dl class="detail-grid">
+            <div class="detail-item"><dt>Fecha de inspección</dt><dd>{{ selected_expediente.fecha or "—" }}</dd></div>
+            <div class="detail-item"><dt>Estado</dt><dd>{{ selected_expediente.estado or "Pendiente" }}</dd></div>
+            <div class="detail-item"><dt>Prioridad de reparación</dt><dd><span class="priority-badge" style="--priority-color: {{ selected_expediente.color }}"><span class="priority-dot" aria-hidden="true"></span>{{ selected_expediente.prioridad }}</span></dd></div>
+            <div class="detail-item"><dt>Puntuación de daños</dt><dd>{{ selected_expediente.priority_score }} puntos</dd></div>
+            <div class="detail-item"><dt>Ubicación</dt><dd>{{ selected_expediente.ubicacion or "No especificada" }}</dd></div>
+            <div class="detail-item"><dt>Coordenadas</dt><dd>{% if selected_expediente.lat is not none and selected_expediente.lon is not none %}{{ "%.5f"|format(selected_expediente.lat) }}, {{ "%.5f"|format(selected_expediente.lon) }}{% else %}No registradas{% endif %}</dd></div>
+            <div class="detail-item"><dt>Baches</dt><dd>{{ selected_expediente.baches or 0 }}</dd></div>
+            <div class="detail-item"><dt>Grietas</dt><dd>{{ selected_expediente.grietas or 0 }}</dd></div>
+            <div class="detail-item"><dt>Piel de cocodrilo</dt><dd>{{ selected_expediente.piel_cocodrilo or 0 }}</dd></div>
+            <div class="detail-item"><dt>Total de defectos</dt><dd>{{ selected_expediente.total_defectos or 0 }}</dd></div>
+          </dl>
+        </div>
+      </section>
+      {% endif %}
+      {% endif %}
+    </main>
+  </div>
+  {% if view == "resumen" and map_points %}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script>
+    const expedientes = {{ map_points|tojson }};
+    const map = L.map("incident-map").setView([37.8063, -0.8374], 13);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    const markerGroup = L.markerClusterGroup({
+      showCoverageOnHover: false,
+      spiderfyOnMaxZoom: true,
+      iconCreateFunction(cluster) {
+        const childMarkers = cluster.getAllChildMarkers();
+        const mostUrgent = childMarkers.reduce((current, marker) =>
+          marker.options.priorityRank < current.options.priorityRank ? marker : current
+        );
+        return L.divIcon({
+          className: "priority-pin",
+          html: `<span style="display:grid;width:38px;height:38px;place-items:center;border:3px solid white;border-radius:50%;background:${mostUrgent.options.priorityColor};box-shadow:0 2px 7px #172b4d55;color:white;font-size:12px;font-weight:750">${cluster.getChildCount()}</span>`,
+          iconSize: [38, 38]
+        });
+      }
+    });
+    const markers = expedientes.map((expediente) => {
+      const pinIcon = L.divIcon({
+        className: "priority-pin",
+        html: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="38" viewBox="0 0 30 38" aria-hidden="true"><path d="M15 1C7.3 1 1 7.2 1 14.8c0 10.2 14 22.2 14 22.2s14-12 14-22.2C29 7.2 22.7 1 15 1Z" fill="${expediente.color}" stroke="white" stroke-width="2"/><circle cx="15" cy="14" r="4.5" fill="white"/></svg>`,
+        iconSize: [30, 38],
+        iconAnchor: [15, 37],
+        popupAnchor: [0, -34]
+      });
+      const marker = L.marker([expediente.lat, expediente.lon], {
+        icon: pinIcon,
+        priorityRank: expediente.rank,
+        priorityColor: expediente.color
+      });
+      const popup = document.createElement("div");
+      const title = document.createElement("strong");
+      title.textContent = expediente.id;
+      const location = document.createElement("div");
+      location.textContent = expediente.ubicacion || "Ubicación no especificada";
+      const date = document.createElement("div");
+      date.textContent = `Fecha: ${expediente.fecha || "—"}`;
+      const status = document.createElement("div");
+      status.textContent = `Estado: ${expediente.estado || "Pendiente"} · Defectos: ${expediente.total_defectos || 0}`;
+      const priority = document.createElement("div");
+      priority.textContent = `Prioridad: ${expediente.prioridad}`;
+      const detailLink = document.createElement("a");
+      detailLink.href = {{ url_for('index', vista='expedientes')|tojson }} + "&id=" + encodeURIComponent(expediente.id);
+      detailLink.textContent = "Ver expediente";
+      detailLink.style.display = "inline-block";
+      detailLink.style.marginTop = "6px";
+      popup.append(title, location, date, status, priority, detailLink);
+      marker.bindPopup(popup);
+      markerGroup.addLayer(marker);
+      return marker;
+    });
+    markerGroup.addTo(map);
+
+    if (markers.length > 1) {
+      map.fitBounds(L.featureGroup(markers).getBounds().pad(0.15));
+    }
+  </script>
+  {% endif %}
+</body>
+</html>

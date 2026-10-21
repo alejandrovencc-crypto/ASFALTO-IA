@@ -1,0 +1,9 @@
+folium
+Flask
+huggingface-hub
+numpy
+pandas
+Pillow
+streamlit
+streamlit-folium
+ultralytics

@@ -2,6 +2,8 @@ import datetime
 import json
 import os
 import sqlite3
+from pathlib import Path
+
 import folium
 import numpy as np
 import pandas as pd
@@ -14,9 +16,11 @@ from ultralytics import YOLO
 # -------------------------------------------------------------------
 # CONFIGURACIÓN Y BASE DE DATOS LOCAL (SQLite)
 # -------------------------------------------------------------------
-DB_NAME = "incidencias.db"
-IMG_DIR = "incidencias_img"
+DATA_DIR = Path(__file__).resolve().parent / "data"
+DB_NAME = str(DATA_DIR / "incidencias.db")
+IMG_DIR = str(DATA_DIR / "incidencias_img")
 
+os.makedirs(DATA_DIR, exist_ok=True)
 if not os.path.exists(IMG_DIR):
   os.makedirs(IMG_DIR)
 
@@ -36,9 +40,13 @@ def init_db():
             piel_cocodrilo INTEGER,
             total_defectos INTEGER,
             estado TEXT,
-            imagen_path TEXT
+            imagen_path TEXT,
+            imagen_original_path TEXT
         )
     """)
+  columns = {row[1] for row in c.execute("PRAGMA table_info(expedientes)")}
+  if "imagen_original_path" not in columns:
+    c.execute("ALTER TABLE expedientes ADD COLUMN imagen_original_path TEXT")
   conn.commit()
   conn.close()
 
@@ -305,18 +313,24 @@ elif modo == "🤖 Inspección por IA (YOLOv8)":
       if st.button("📥 Registrar Expediente en Base de Datos"):
         exp_id = f"EXP-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
         fecha_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-        img_filename = f"{IMG_DIR}/{exp_id}.jpg"
+        img_filename = str(Path(IMG_DIR) / f"{exp_id}.jpg")
 
         # Guardar imagen procesada
         processed_img = Image.fromarray(st.session_state["im_array"])
         processed_img.save(img_filename)
+        original_img_filename = str(Path(IMG_DIR) / f"{exp_id}_original.jpg")
+        image.convert("RGB").save(original_img_filename, format="JPEG", quality=90)
 
         # Insertar en SQLite
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
         c.execute(
             """
-                    INSERT INTO expedientes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO expedientes (
+                        id, fecha, ubicacion, lat, lon, baches, grietas,
+                        piel_cocodrilo, total_defectos, estado, imagen_path,
+                        imagen_original_path
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
             (
                 exp_id,
@@ -330,6 +344,7 @@ elif modo == "🤖 Inspección por IA (YOLOv8)":
                 st.session_state["t_count"],
                 "Pendiente",
                 img_filename,
+                original_img_filename,
             ),
         )
         conn.commit()
@@ -431,9 +446,13 @@ elif modo == "🗄️ Histórico de Expedientes":
           st.rerun()
 
       with col_det2:
-        if os.path.exists(row["imagen_path"]):
+        image_path = Path(row["imagen_path"])
+        if not image_path.is_absolute() and not image_path.is_file():
+          image_path = DATA_DIR / image_path
+
+        if image_path.is_file():
           st.image(
-              Image.open(row["imagen_path"]),
+              Image.open(image_path),
               caption=f"Evidencia Fotográfica - {row['id']}",
               use_container_width=True,
           )
