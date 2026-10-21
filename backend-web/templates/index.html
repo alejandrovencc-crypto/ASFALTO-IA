@@ -3,20 +3,65 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f5f7fb">
+  <meta name="theme-color" content="#111827">
   <title>Asfalto IA | Panel de incidencias</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <script>
+    (() => {
+      let theme = "dark";
+      try {
+        const savedTheme = localStorage.getItem("asfalto-ia-theme");
+        if (savedTheme === "light" || savedTheme === "dark") theme = savedTheme;
+      } catch (error) {
+        console.warn("No se pudo recuperar el tema guardado.", error);
+      }
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
   <style>
     :root {
+      color-scheme: dark;
+      --ink: #e6edf7;
+      --muted: #9aa9bd;
+      --secondary: #c1ccda;
+      --line: #2a374b;
+      --blue: #83a5ff;
+      --canvas: #111827;
+      --surface: #192435;
+      --surface-raised: #202d40;
+      --surface-soft: #1c293b;
+      --border-soft: #28364b;
+      --accent-soft: #243657;
+      --field-bg: #141f2f;
+      --avatar-bg: #293b59;
+      --avatar-ink: #a9c1ff;
+      --link: #93b0ff;
+      --image-bg: #101827;
+      --map-bg: #263548;
+      --shadow: 0 4px 16px rgba(0, 0, 0, .18);
+    }
+    :root[data-theme="light"] {
       color-scheme: light;
       --ink: #172b4d;
       --muted: #718096;
+      --secondary: #526174;
       --line: #e7ebf2;
       --blue: #315eea;
       --canvas: #f5f7fb;
       --surface: #fff;
+      --surface-raised: #fff;
+      --surface-soft: #fafbfc;
+      --border-soft: #f0f2f6;
+      --accent-soft: #eef2ff;
+      --field-bg: #fff;
+      --avatar-bg: #dce7ff;
+      --avatar-ink: #315eea;
+      --link: #315eea;
+      --image-bg: #f1f3f7;
+      --map-bg: #e8edf5;
+      --shadow: 0 4px 16px rgba(27, 43, 71, .035);
     }
 
     * { box-sizing: border-box; }
@@ -35,7 +80,7 @@
       width: 248px;
       flex-direction: column;
       padding: 28px 18px;
-      background: #fff;
+      background: var(--surface);
       border-right: 1px solid var(--line);
     }
     .brand { display: flex; align-items: center; gap: 11px; padding: 0 10px 34px; }
@@ -45,7 +90,7 @@
       height: 38px;
       place-items: center;
       border-radius: 12px;
-      background: #eaf0ff;
+      background: var(--accent-soft);
       color: var(--blue);
       font-size: 21px;
       font-weight: 800;
@@ -54,7 +99,7 @@
     .brand-subtitle { color: var(--muted); font-size: 11px; }
     .nav-label {
       padding: 0 12px 10px;
-      color: #98a2b3;
+      color: var(--muted);
       font-size: 10px;
       font-weight: 750;
       letter-spacing: .12em;
@@ -67,13 +112,13 @@
       margin-bottom: 5px;
       padding: 11px 12px;
       border-radius: 10px;
-      color: #667085;
+      color: var(--secondary);
       font-size: 13px;
       font-weight: 600;
       text-decoration: none;
     }
-    .nav-item:hover { background: #f5f7fb; color: var(--ink); }
-    .nav-item.active { background: #eef2ff; color: var(--blue); }
+    .nav-item:hover { background: var(--surface-soft); color: var(--ink); }
+    .nav-item.active { background: var(--accent-soft); color: var(--blue); }
     .nav-icon { width: 20px; text-align: center; font-size: 16px; }
     .sidebar-note {
       margin-top: auto;
@@ -93,64 +138,97 @@
     }
     main { margin-left: 248px; padding: 34px clamp(22px, 4vw, 58px) 56px; }
     .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 34px; }
+    .topbar-actions { display: flex; align-items: center; gap: 16px; }
     .eyebrow { margin: 0 0 6px; color: var(--muted); font-size: 12px; }
     h1 { margin: 0; font-size: clamp(25px, 3vw, 32px); letter-spacing: -.045em; }
-    .user-chip { display: flex; align-items: center; gap: 10px; color: #526174; font-size: 13px; }
+    .user-chip { display: flex; align-items: center; gap: 10px; color: var(--secondary); font-size: 13px; }
     .avatar {
       display: grid;
       width: 36px;
       height: 36px;
       place-items: center;
       border-radius: 50%;
-      background: #dce7ff;
-      color: #315eea;
+      background: var(--avatar-bg);
+      color: var(--avatar-ink);
       font-weight: 750;
     }
     .welcome { margin-bottom: 24px; color: var(--muted); }
     .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 26px; }
-    .card, .panel { border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: 0 4px 16px rgba(27, 43, 71, .035); }
+    .card, .panel { border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: var(--shadow); }
     .metric { min-height: 142px; padding: 20px; }
     .metric-top { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; font-weight: 600; }
-    .metric-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: #f0f3ff; color: var(--blue); font-size: 16px; }
+    .metric-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: var(--accent-soft); color: var(--blue); font-size: 16px; }
     .metric-value { display: block; margin-top: 15px; font-size: 29px; font-weight: 750; letter-spacing: -.04em; }
-    .metric-foot { color: #98a2b3; font-size: 11px; }
+    .metric-foot { color: var(--muted); font-size: 11px; }
     .panel { overflow: hidden; }
     .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 21px 23px; }
     h2 { margin: 0; font-size: 16px; letter-spacing: -.02em; }
     .panel-subtitle { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
-    th { padding: 12px 22px; background: #fafbfc; color: #8993a3; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-    td { padding: 15px 22px; border-top: 1px solid #f0f2f6; color: #526174; font-size: 12px; }
+    th { padding: 12px 22px; background: var(--surface-soft); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    td { padding: 15px 22px; border-top: 1px solid var(--border-soft); color: var(--secondary); font-size: 12px; }
     td:first-child { color: var(--ink); font-weight: 650; }
-    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 20px; background: #fff7e6; color: #a66500; font-size: 11px; font-weight: 650; }
-    .badge.done { background: #eaf8ef; color: #188344; }
-    .priority-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 20px; background: #fff; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 20px; background: #4b3718; color: #ffd27a; font-size: 11px; font-weight: 650; }
+    .badge.done { background: #173b2b; color: #8be0ac; }
+    :root[data-theme="light"] .badge { background: #fff7e6; color: #a66500; }
+    :root[data-theme="light"] .badge.done { background: #eaf8ef; color: #188344; }
+    .priority-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 20px; background: var(--surface-raised); font-size: 11px; font-weight: 700; white-space: nowrap; }
     .priority-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--priority-color); }
     .records-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-    .priority-filter { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
-    .priority-filter select, .priority-filter button { min-height: 36px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); }
-    .priority-filter button { cursor: pointer; font-weight: 650; }
-    .priority-filter button:hover { border-color: var(--blue); color: var(--blue); }
-    .table-link { color: var(--blue); font-weight: 700; text-decoration: none; }
+    .records-filters { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+    .records-filters label { color: var(--muted); font-size: 12px; }
+    .records-filters select, .records-filters button { min-height: 36px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--field-bg); color: var(--ink); }
+    .records-filters option { background: var(--surface); color: var(--ink); }
+    .records-filters button { cursor: pointer; font-weight: 650; }
+    .records-filters button:hover { border-color: var(--blue); color: var(--blue); }
+    .table-link { color: var(--link); font-weight: 700; text-decoration: none; }
     .table-link:hover { text-decoration: underline; }
     .detail-panel { margin-top: 22px; }
     .detail-content { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(280px, 1.1fr); gap: 24px; padding: 0 23px 24px; }
-    .evidence-image { display: block; width: 100%; max-height: 390px; border: 1px solid var(--line); border-radius: 12px; object-fit: contain; background: #f1f3f7; }
+    .evidence-image { display: block; width: 100%; max-height: 390px; border: 1px solid var(--line); border-radius: 12px; object-fit: contain; background: var(--image-bg); }
     .image-caption { margin: 7px 0 0; color: var(--muted); font-size: 11px; }
     .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
-    .detail-item { padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+    .detail-item { padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); }
     .detail-item dt { margin-bottom: 3px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
     .detail-item dd { margin: 0; color: var(--ink); font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
-    .detail-close { color: var(--blue); font-size: 12px; font-weight: 650; text-decoration: none; white-space: nowrap; }
+    .detail-close { color: var(--link); font-size: 12px; font-weight: 650; text-decoration: none; white-space: nowrap; }
     .detail-close:hover { text-decoration: underline; }
     .map-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
     .map-legend .priority-badge { padding: 2px 0; background: transparent; }
     .priority-pin { background: transparent; border: 0; }
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+    .theme-toggle:hover { border-color: var(--blue); color: var(--blue); }
+    :root:not([data-theme="light"]) .leaflet-tile { filter: brightness(.68) invert(1) hue-rotate(180deg) saturate(.7) contrast(.9); }
+    :root:not([data-theme="light"]) .leaflet-popup-content-wrapper,
+    :root:not([data-theme="light"]) .leaflet-popup-tip { background: #202d40; color: #e6edf7; }
+    :root:not([data-theme="light"]) .leaflet-bar a,
+    :root:not([data-theme="light"]) .leaflet-bar a:hover { background: #192435; border-color: #2a374b; color: #e6edf7; }
+    :root:not([data-theme="light"]) .marker-cluster-small,
+    :root:not([data-theme="light"]) .marker-cluster-medium,
+    :root:not([data-theme="light"]) .marker-cluster-large { background-color: rgba(131, 165, 255, .28); }
+    :root:not([data-theme="light"]) .marker-cluster-small div,
+    :root:not([data-theme="light"]) .marker-cluster-medium div,
+    :root:not([data-theme="light"]) .marker-cluster-large div { background-color: #293b59; color: #e6edf7; }
     .empty { padding: 46px 20px; color: var(--muted); text-align: center; }
     .empty-icon { margin-bottom: 8px; font-size: 25px; }
     .map-panel { margin-bottom: 26px; }
-    #incident-map { height: 390px; width: 100%; background: #e8edf5; }
+    #incident-map { height: 390px; width: 100%; background: var(--map-bg); }
     .inspection-card { padding: 28px; }
     .inspection-card p { max-width: 680px; color: var(--muted); }
     .action-link {
@@ -171,8 +249,8 @@
       margin-top: 8px;
       padding: 9px 12px;
       border-radius: 8px;
-      background: #f3f5f9;
-      color: #526174;
+      background: var(--surface-soft);
+      color: var(--secondary);
       font-size: 12px;
     }
     @media (max-width: 950px) {
@@ -186,8 +264,11 @@
       .nav-label, .sidebar-note { display: none; }
       .nav-item { display: inline-flex; margin: 0 4px 0 0; padding: 8px; font-size: 12px; }
       main { margin-left: 0; padding: 24px 16px 38px; }
-      .topbar { margin-bottom: 22px; }
+      .topbar { margin-bottom: 22px; align-items: flex-start; }
+      .topbar-actions { gap: 9px; }
       .user-chip span { display: none; }
+      .theme-toggle { padding: 8px; }
+      .theme-toggle-label { display: none; }
       .metrics { gap: 10px; }
       .metric { min-height: 126px; padding: 15px; }
       .metric-value { font-size: 25px; }
@@ -196,7 +277,7 @@
       #incident-map { height: 310px; }
       .inspection-card { padding: 20px; }
       .records-toolbar { align-items: flex-start; flex-direction: column; }
-      .priority-filter { flex-wrap: wrap; }
+      .records-filters { justify-content: flex-start; }
       .detail-content { grid-template-columns: 1fr; padding: 0 18px 18px; }
     }
   </style>
@@ -228,7 +309,13 @@
           <p class="eyebrow">Panel de control / {{ {"resumen": "Resumen", "inspecciones": "Inspecciones", "expedientes": "Expedientes"}[view] }}</p>
           <h1>{{ {"resumen": "Incidencias viarias", "inspecciones": "Inspecciones con IA", "expedientes": "Expedientes registrados"}[view] }}</h1>
         </div>
-        <div class="user-chip"><div class="avatar" aria-hidden="true">SJ</div><span>San Javier</span></div>
+        <div class="topbar-actions">
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Cambiar a modo claro">
+            <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+            <span class="theme-toggle-label">Modo claro</span>
+          </button>
+          <div class="user-chip"><div class="avatar" aria-hidden="true">SJ</div><span>San Javier</span></div>
+        </div>
       </header>
       {% if view == "resumen" %}
       <p class="welcome">Estado general de las inspecciones y daños registrados en la red viaria.</p>
@@ -289,11 +376,12 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Expediente</th><th>Fecha</th><th>Ubicación</th><th>Defectos</th><th>Estado</th></tr>
+              <tr><th>Prioridad</th><th>Expediente</th><th>Fecha</th><th>Ubicación</th><th>Defectos</th><th>Estado</th></tr>
             </thead>
             <tbody>
               {% for incidencia in incidencias %}
               <tr>
+                <td><span class="priority-badge" style="--priority-color: {{ incidencia.color }}"><span class="priority-dot" aria-hidden="true"></span>{{ incidencia.prioridad }}</span></td>
                 <td><a class="table-link" href="{{ url_for('index', vista='expedientes', id=incidencia.id) }}">{{ incidencia.id }}</a></td>
                 <td>{{ incidencia.fecha or "—" }}</td>
                 <td>{{ incidencia.ubicacion or "Ubicación no especificada" }}</td>
@@ -328,10 +416,23 @@
           <div class="records-toolbar">
           <div>
             <h2 id="records-heading">Todos los expedientes</h2>
-            <p class="panel-subtitle">{{ expedientes|length }} registros · Prioridad: baches ×3, piel de cocodrilo ×2 y grietas ×1</p>
+            <p class="panel-subtitle">{{ expedientes|length }} expedientes · Prioridad: baches ×3, piel de cocodrilo ×2 y grietas ×1</p>
           </div>
-          <form class="priority-filter" method="get" action="{{ url_for('index') }}">
+          <form class="records-filters" method="get" action="{{ url_for('index') }}">
             <input type="hidden" name="vista" value="expedientes">
+            <label for="sort-order">Ordenar</label>
+            <select id="sort-order" name="orden">
+              {% for value, label in sort_options.items() %}
+              <option value="{{ value }}"{% if sort_by == value %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <label for="state-filter">Estado</label>
+            <select id="state-filter" name="estado">
+              <option value="">Todos</option>
+              {% for state in states %}
+              <option value="{{ state }}"{% if state_filter == state %} selected{% endif %}>{{ state }}</option>
+              {% endfor %}
+            </select>
             <label for="priority-filter">Prioridad</label>
             <select id="priority-filter" name="prioridad">
               <option value="">Todas</option>
@@ -353,7 +454,7 @@
               {% for incidencia in expedientes %}
               <tr>
                 <td><span class="priority-badge" style="--priority-color: {{ incidencia.color }}"><span class="priority-dot" aria-hidden="true"></span>{{ incidencia.prioridad }}</span></td>
-                <td><a class="table-link" href="{{ url_for('index', vista='expedientes', id=incidencia.id, prioridad=priority_filter or none) }}">{{ incidencia.id }}</a></td>
+                <td><a class="table-link" href="{{ url_for('index', vista='expedientes', id=incidencia.id, prioridad=priority_filter or none, estado=state_filter or none, orden=sort_by) }}">{{ incidencia.id }}</a></td>
                 <td>{{ incidencia.fecha or "—" }}</td>
                 <td>{{ incidencia.ubicacion or "Ubicación no especificada" }}</td>
                 <td>{{ incidencia.baches or 0 }}</td>
@@ -377,7 +478,7 @@
             <h2 id="detail-heading">Detalle del expediente {{ selected_expediente.id }}</h2>
             <p class="panel-subtitle">Información de la inspección y evidencia fotográfica</p>
           </div>
-          <a class="detail-close" href="{{ url_for('index', vista='expedientes', prioridad=priority_filter or none) }}">Cerrar detalle</a>
+          <a class="detail-close" href="{{ url_for('index', vista='expedientes', prioridad=priority_filter or none, estado=state_filter or none, orden=sort_by) }}">Cerrar detalle</a>
         </div>
         <div class="detail-content">
           <div>
@@ -478,5 +579,36 @@
     }
   </script>
   {% endif %}
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const button = document.getElementById("theme-toggle");
+      const themeColor = document.querySelector('meta[name="theme-color"]');
+      const icon = button.querySelector(".theme-toggle-icon");
+      const label = button.querySelector(".theme-toggle-label");
+
+      const updateButton = () => {
+        const isDark = root.dataset.theme === "dark";
+        const targetLabel = isDark ? "Modo claro" : "Modo oscuro";
+        button.setAttribute("aria-label", `Cambiar a ${targetLabel.toLowerCase()}`);
+        button.setAttribute("aria-pressed", String(isDark));
+        icon.textContent = isDark ? "☀" : "☾";
+        label.textContent = targetLabel;
+        themeColor.content = isDark ? "#111827" : "#f5f7fb";
+      };
+
+      updateButton();
+      button.addEventListener("click", () => {
+        const theme = root.dataset.theme === "dark" ? "light" : "dark";
+        root.dataset.theme = theme;
+        updateButton();
+        try {
+          localStorage.setItem("asfalto-ia-theme", theme);
+        } catch (error) {
+          console.warn("No se pudo guardar la preferencia de tema.", error);
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

@@ -13,6 +13,13 @@ PRIORITIES = {
     "Media": {"rank": 2, "color": "#eab308"},
     "Baja": {"rank": 3, "color": "#facc15"},
 }
+STATES = ("Pendiente", "En Licitación", "Reparado")
+SORT_OPTIONS = {
+    "fecha_desc": "Fecha: más recientes primero",
+    "fecha_asc": "Fecha: más antiguos primero",
+    "prioridad_desc": "Prioridad: mayor a menor",
+    "prioridad_asc": "Prioridad: menor a mayor",
+}
 
 
 def get_priority(expediente):
@@ -100,6 +107,12 @@ def index():
     priority_filter = request.args.get("prioridad", "")
     if priority_filter not in PRIORITIES:
         priority_filter = ""
+    state_filter = request.args.get("estado", "")
+    if state_filter not in STATES:
+        state_filter = ""
+    sort_by = request.args.get("orden", "prioridad_desc")
+    if sort_by not in SORT_OPTIONS:
+        sort_by = "prioridad_desc"
     selected_id = request.args.get("id", "")
 
     with sqlite3.connect(DB_PATH) as conn:
@@ -143,13 +156,30 @@ def index():
             selected_expediente = record
 
     records.sort(key=lambda record: record["fecha"] or "", reverse=True)
-    records.sort(key=lambda record: record["rank"])
-    if priority_filter:
-        records = [
-            record
-            for record in records
-            if record["prioridad"] == priority_filter
-        ]
+    if view == "expedientes":
+        if sort_by == "fecha_asc":
+            records.reverse()
+        elif sort_by == "prioridad_desc":
+            records.sort(key=lambda record: record["rank"])
+        elif sort_by == "prioridad_asc":
+            records.sort(key=lambda record: record["rank"], reverse=True)
+        if priority_filter:
+            records = [
+                record
+                for record in records
+                if record["prioridad"] == priority_filter
+            ]
+        if state_filter:
+            records = [
+                record
+                for record in records
+                if record["estado"] == state_filter
+            ]
+
+    selected_expediente = next(
+        (record for record in records if record["id"] == selected_id),
+        None,
+    )
 
     selected_image = None
     selected_image_is_original = False
@@ -187,7 +217,11 @@ def index():
         expedientes=records,
         map_points=map_points,
         priority_filter=priority_filter,
+        state_filter=state_filter,
+        sort_by=sort_by,
         priorities=PRIORITIES,
+        states=STATES,
+        sort_options=SORT_OPTIONS,
         selected_expediente=selected_expediente,
         selected_image=selected_image,
         selected_image_is_original=selected_image_is_original,

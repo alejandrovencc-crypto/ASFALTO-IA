@@ -25,3 +25,7 @@ streamlit run backend-web/streamlit_app.py
 ```
 
 La prioridad se calcula automáticamente: baches ×3, piel de cocodrilo ×2 y grietas ×1. Una puntuación de 100 o más es crítica, 50 o más alta, 15 o más media y el resto baja. Los expedientes reparados quedan en prioridad baja. Al registrar nuevos análisis se conserva tanto la fotografía original como la imagen procesada.
+
+En la pestaña **Expedientes** puedes ordenar por fecha o prioridad y combinar filtros por estado y prioridad. La selección se conserva al abrir o cerrar el detalle de un expediente.
+
+La interfaz web abre por defecto en modo oscuro. El botón del encabezado alterna entre modo oscuro y claro y guarda la última elección en el navegador (`localStorage`), también al recargar o cambiar de sección.
