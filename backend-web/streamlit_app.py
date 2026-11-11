@@ -1,4 +1,6 @@
 import datetime
+import hashlib
+import io
 import json
 import os
 import sqlite3
@@ -8,7 +10,6 @@ import folium
 import numpy as np
 import pandas as pd
 import streamlit as st
-from huggingface_hub import hf_hub_download
 from PIL import Image
 from streamlit_folium import st_folium
 from ultralytics import YOLO
@@ -19,10 +20,16 @@ from ultralytics import YOLO
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DB_NAME = str(DATA_DIR / "incidencias.db")
 IMG_DIR = str(DATA_DIR / "incidencias_img")
+MODEL_PATH = Path(__file__).resolve().parents[1] / "modelos" / "best.pt"
 
 os.makedirs(DATA_DIR, exist_ok=True)
 if not os.path.exists(IMG_DIR):
   os.makedirs(IMG_DIR)
+
+
+@st.cache_resource
+def load_model():
+  return YOLO(str(MODEL_PATH))
 
 
 def init_db():
@@ -213,65 +220,68 @@ elif modo == "🤖 Inspección por IA (YOLOv8)":
   )
 
   if uploaded_file is not None:
+    uploaded_bytes = uploaded_file.getvalue()
+    image_digest = hashlib.sha256(uploaded_bytes).hexdigest()
     col_img1, col_img2 = st.columns(2)
 
     with col_img1:
       st.subheader("📷 Fotografía Original")
-      image = Image.open(uploaded_file)
+      image = Image.open(io.BytesIO(uploaded_bytes)).convert("RGB")
       st.image(image, use_container_width=True)
 
     with col_img2:
       st.subheader("📊 Diagnóstico IA en Directo")
-      if st.button("🚀 Ejecutar Análisis de Defectos"):
+      if not MODEL_PATH.is_file():
+        st.error(f"No se encuentra el modelo entrenado: {MODEL_PATH}")
+      if st.button(
+          "🚀 Ejecutar Análisis de Defectos",
+          disabled=not MODEL_PATH.is_file(),
+      ):
         with st.spinner(
             "Procesando red neuronal y clasificando patologías..."
         ):
-          weights_path = hf_hub_download(
-              repo_id="ozair23/yolov8-road-damage-detector", filename="best.pt"
-          )
-          model = YOLO(weights_path)
-
+          model = load_model()
           img_np = np.array(image)
-          results = model(img_np, conf=conf_threshold, imgsz=img_size)
+          results = model.predict(
+              source=img_np, conf=conf_threshold, imgsz=img_size
+          )
 
           potholes_count = 0
           cracks_count = 0
           alligator_count = 0
           total_detections = 0
+          im_array = img_np
 
           for r in results:
+            im_array = r.plot(
+                line_width=2, font_size=1, conf=True, labels=True
+            )[..., ::-1].copy()
             for box in r.boxes:
               total_detections += 1
               cls_id = int(box.cls[0])
-              class_name = model.names[cls_id].lower()
+              class_name = model.names[cls_id].casefold()
 
               if (
                   "pothole" in class_name
-                  or "d40" in class_name
                   or "bache" in class_name
               ):
                 potholes_count += 1
               elif (
                   "alligator" in class_name
-                  or "d20" in class_name
                   or "cocodrilo" in class_name
               ):
                 alligator_count += 1
               else:
                 cracks_count += 1
 
-            im_array = r.plot(
-                line_width=2, font_size=1, conf=True, labels=True
-            )
-
           st.session_state["im_array"] = im_array
           st.session_state["p_count"] = potholes_count
           st.session_state["c_count"] = cracks_count
           st.session_state["a_count"] = alligator_count
           st.session_state["t_count"] = total_detections
-          st.session_state["analyzed"] = True
+          st.session_state["analyzed_image"] = image_digest
 
-    if st.session_state.get("analyzed", False):
+    if st.session_state.get("analyzed_image") == image_digest:
       with col_img2:
         st.image(st.session_state["im_array"], use_container_width=True)
 
